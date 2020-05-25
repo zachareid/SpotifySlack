@@ -47,34 +47,6 @@ def new_message4():
         print("no spotify song")
     return ret, 200
 
-
-@app.route('/new_message3', methods=['GET', 'POST'])
-def new_message(): 
-    print("hello")
-    ret = ""
-    try:
-        body = request.get_json()
-        ret = body["challenge"]
-    except:
-        print("no challenge")
-    try:
-        if body["token"] == token:
-            print(str(body))
-            url = body["event"]["links"][0]["url"]
-            print(url)
-            spot_ids = re.findall(spotify_reg, url)
-            spot_id = ""
-            if len(spot_ids) == 0:
-                spot_id = url.split("/track/")[-1]
-            else:
-                spot_id = spot_ids[-1]
-            print(spot_id)
-            sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-            results = sp.user_playlist_add_tracks(username, playlist_id, [spot_id])
-    except:
-        print("no spotify song")
-    return ret, 200
-
 if __name__ == '__main__':
     # Threaded option to enable multiple instances for multiple user access support
     app.run(threaded=True, port=5000)
