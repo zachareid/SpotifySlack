@@ -42,7 +42,8 @@ def new_message4():
                 spot_id = spot_ids[-1]
             print(spot_id)
 
-            response = client.chat_postMessage(channel=slack_channel, text=spot_id)
+            if ".com" not in spot_id:
+                response = client.chat_postMessage(channel=slack_channel, text=spot_id)
     except :
         print("no spotify song")
     return ret, 200
