@@ -1,25 +1,54 @@
-from flask import request
-from flask import Flask
+from flask import request, Flask
 import requests
 import re
-
-import spotipy
-
-app = Flask(__name__)
+import os
+from slack import WebClient
+from slack.errors import SlackApiError
 
 token = "UYXuhkMMui7Vhk4APkQ7poaL"
 spotify_reg = "[^\/][\w]+(?=\?)"
-playlist_id = "2yjszF9EexqHgURRJ5GTSI"
-oauth_token = "BQD2bTiwfISkBZulVOFiO-nuhazXI4oSkO2R3xR88StipvAAq2vMcK3RfGgJIIp6LLI8nERPwyOUeChXbqp_3FaTL_4TJUFObkRaB2gymBw8f7S081jM5_Zxz4jUqOaVRPVUvsngo1fHOEcuO0KDZ7P4z74FskKDkClBrbWYsYwqFmxrbLJ20gLmIvqsTkVib1Q"
-username = "bdejun1gahnpit25tfaibrmun"
 
+app = Flask(__name__)
+slack_token = os.environ["SLACK_API_TOKEN"]
+client = WebClient(token=slack_token)
+slack_channel = "zar-test"
 
 
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
 
-@app.route('/new_message2', methods=['GET', 'POST'])
+
+@app.route('/new_message4', methods=['GET', 'POST'])
+def new_message4(): 
+    print("hello")
+    ret = ""
+    try:
+        body = request.get_json()
+        ret = body["challenge"]
+    except:
+        print("no challenge")
+    try:
+        if body["token"] == token:
+            print(str(body))
+            url = body["event"]["links"][0]["url"]
+            print(url)
+            spot_ids = re.findall(spotify_reg, url)
+            print(f"spotids: {spot_ids}")
+            spot_id = ""
+            if len(spot_ids) == 0:
+                spot_id = url.split("/track/")[-1]
+            else:
+                spot_id = spot_ids[-1]
+            print(spot_id)
+
+            response = client.chat_postMessage(channel=slack_channel, text=spot_id)
+    except :
+        print("no spotify song")
+    return ret, 200
+
+
+@app.route('/new_message3', methods=['GET', 'POST'])
 def new_message(): 
     print("hello")
     ret = ""
@@ -40,7 +69,7 @@ def new_message():
             else:
                 spot_id = spot_ids[-1]
             print(spot_id)
-            sp = spotipy.Spotify(auth=oauth_token)
+            sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
             results = sp.user_playlist_add_tracks(username, playlist_id, [spot_id])
     except:
         print("no spotify song")
@@ -48,4 +77,4 @@ def new_message():
 
 if __name__ == '__main__':
     # Threaded option to enable multiple instances for multiple user access support
-    app.run(threaded=True, port=5000)
+    app.run(threaded=False, host="0.0.0.0", port=80)
