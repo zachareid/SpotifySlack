@@ -54,10 +54,10 @@ class Prediction(db.Model):
 
     def __repr__(self):
         out_str =  f"{self.stock}\n"
-        out_str += f"\tStart date: {self.prediction_start:%Y-%m-%d} \n\t End Date: {self.prediction_end:%Y-%m-%d} \n\t Days: {self.prediction_days}\n"
-        out_str += "\tStart Price: ${float(self.stock_price):.02f}\n"
+        out_str += f"\tStart date: {self.prediction_start:%Y-%m-%d} \n\tEnd Date: {self.prediction_end:%Y-%m-%d} \n\tDays: {self.prediction_days}\n"
+        out_str += f"\tStart Price: ${float(self.stock_price):.02f}\n"
         if self.stock_price_end:
-            out_str +=f"\tEnd Price: ${float(self.stock_price_end):.02f} \n"
+            out_str += f"\tEnd Price: ${float(self.stock_price_end):.02f} \n"
         return out_str
 
 client = WebClient(token=slack_token)
