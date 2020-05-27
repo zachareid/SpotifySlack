@@ -53,10 +53,10 @@ class Prediction(db.Model):
         self.user_id = user_id
 
     def __repr__(self):
-        out_str =  f"{self.stock}\n \t Start Price: ${float(self.stock_price):.02f}\n"
+        out_str =  f"{self.stock}\n \t Start Price:\t${float(self.stock_price):.02f}\n"
         if self.stock_price_end:
-            out_str +=f"\t End Price: ${float(self.stock_price_end):.02f} \n"
-        out_str += f"\t Start date: {self.prediction_start:%Y-%m-%d} \n\t End Date: {self.prediction_end:%Y-%m-%d} \n\t Days: {self.prediction_days}\n"
+            out_str +=f"\t End Price:\t${float(self.stock_price_end):.02f} \n"
+        out_str += f"\t Start date:\t{self.prediction_start:%Y-%m-%d} \n\t End Date:\t{self.prediction_end:%Y-%m-%d} \n\t Days:\t{self.prediction_days}\n"
         return out_str
 
 client = WebClient(token=slack_token)
@@ -86,7 +86,7 @@ def updatePredictions():
 def getPredictions(slack_id):
     user = User.query.filter(User.slack_id == slack_id).first()
     preds = user.predictions.all()
-    out_str = "Predictions:\n"
+    out_str = ""
     for pred in preds:
         out_str += str(pred)
         price = getClosingPrice(pred.stock, date.today())
