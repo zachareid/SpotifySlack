@@ -57,7 +57,7 @@ class Prediction(db.Model):
         if self.stock_price_end:
             out_str +=f"\t End Price: ${float(self.stock_price_end):.02f} \n"
         out_str += f"\t Start date: {self.prediction_start:%Y-%m-%d} \n\t End Date: {self.prediction_end:%Y-%m-%d} \n\t Days: {self.prediction_days}\n"
-        out_str =  f"{self.stock}\n \t Start Price: ${float(self.stock_price):.02f}\n"
+        out_str +=  f"{self.stock}\n \t Start Price: ${float(self.stock_price):.02f}\n"
 
         return out_str
 
