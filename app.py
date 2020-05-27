@@ -1,5 +1,6 @@
 import re
 import os
+import time
 
 from flask import request, Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -90,7 +91,7 @@ def getPredictions(slack_id):
         out_str += str(pred)
         price = getClosingPrice(pred.stock, date.today())
         out_str += f"\t Current Price: ${float(price):.02f}\n"
-        sleep(5)
+        time.sleep(5)
     out_json = {}
     out_json["text"] = "Predictions"
     out_json["response_type"] = "in_channel"
