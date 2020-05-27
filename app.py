@@ -13,8 +13,6 @@ from datetime import date, timedelta, datetime
 app = Flask(__name__)
 slack_token = os.environ["SLACK_API_TOKEN"]
 token = os.environ["SLACK_REQ_TOKEN"]
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://slack-stock-predict'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
