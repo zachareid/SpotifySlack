@@ -91,7 +91,6 @@ def getPredictions(slack_id):
         out_str += str(pred)
         price = getClosingPrice(pred.stock, date.today())
         out_str += f"\t Current Price: ${float(price):.02f}\n"
-        time.sleep(5)
     out_json = {}
     out_json["text"] = "Predictions"
     out_json["response_type"] = "in_channel"
