@@ -53,12 +53,11 @@ class Prediction(db.Model):
         self.user_id = user_id
 
     def __repr__(self):
-        out_str = ""
+        out_str =  f"{self.stock}\n"
+        out_str += f"\tStart date: {self.prediction_start:%Y-%m-%d} \n\t End Date: {self.prediction_end:%Y-%m-%d} \n\t Days: {self.prediction_days}\n"
+        out_str += "\tStart Price: ${float(self.stock_price):.02f}\n"
         if self.stock_price_end:
-            out_str +=f"\t End Price: ${float(self.stock_price_end):.02f} \n"
-        out_str += f"\t Start date: {self.prediction_start:%Y-%m-%d} \n\t End Date: {self.prediction_end:%Y-%m-%d} \n\t Days: {self.prediction_days}\n"
-        out_str +=  f"{self.stock}\n \t Start Price: ${float(self.stock_price):.02f}\n"
-
+            out_str +=f"\tEnd Price: ${float(self.stock_price_end):.02f} \n"
         return out_str
 
 client = WebClient(token=slack_token)
@@ -92,7 +91,7 @@ def getPredictions(slack_id):
     for pred in preds:
         out_str += str(pred)
         price = getClosingPrice(pred.stock, date.today())
-        out_str += f"\t Current Price: ${float(price):.02f}\n"
+        out_str += f"\tCurrent Price: ${float(price):.02f}\n"
     out_json = {}
     out_json["text"] = "Predictions"
     out_json["response_type"] = "in_channel"
