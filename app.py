@@ -90,11 +90,12 @@ def getPredictions(slack_id):
         out_str += str(pred)
         price = getClosingPrice(pred.stock, date.today())
         out_str += f"\t Current Price: ${float(price):.02f}\n"
+        sleep(5)
     out_json = {}
     out_json["text"] = "Predictions"
     out_json["response_type"] = "in_channel"
     out_json["attachments"] = [ { "text" : out_str}]
-    return jsonify(out_json)
+    return out_json
     
     
 
@@ -111,7 +112,7 @@ def predict():
 
     if ticker == "get":
         updatePredictions()
-        return getPredictions(slack_id)
+        return jsonify(getPredictions(slack_id))
     if "$" not in ticker:
         return "You forgot the $, idiot"
     
