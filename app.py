@@ -1,6 +1,7 @@
 import re
 import os
 import time
+from threading import Lock
 
 from flask import request, Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -18,6 +19,9 @@ token = os.environ["SLACK_REQ_TOKEN"]
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
+song_set = set()
+song_lock = Lock()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +63,7 @@ class Prediction(db.Model):
         if self.stock_price_end:
             out_str += f"\tEnd Price: ${float(self.stock_price_end):.02f} \n"
         return out_str
+
 
 client = WebClient(token=slack_token)
 slack_channel = "zar-test"
@@ -180,6 +185,14 @@ def add_to_playlist():
             else:
                 spot_id = spot_ids[-1]
             print(spot_id)
+            with lock:
+                if spot_id in song_set:
+                    print("Already in playlist")
+                    ret = "Already in playlist"
+                    return ret, 200
+                else:
+                    print("adding to playlist")
+                    song_set.add(spot_id)
 
             if ".com" not in spot_id:
                 print(f"Posting Spotify song: {spot_id} to {slack_channel}")
