@@ -165,7 +165,7 @@ def isInt(s):
 
 @app.route('/add_to_playlist', methods=['GET', 'POST'])
 def add_to_playlist(): 
-    print("Adding song to playlist.")
+    print("/add_to_playlist called")
     ret = ""
     try:
         # This code path is required to validate an endpoint for slack events
@@ -174,9 +174,7 @@ def add_to_playlist():
     except:
         print("No challenge token present.")
     try:
-        # 
         if body["token"] == token:
-            print(str(body))
             url = body["event"]["links"][0]["url"]
             spot_ids = re.findall(spotify_reg, url)
             spot_id = ""
@@ -184,22 +182,14 @@ def add_to_playlist():
                 spot_id = url.split("/track/")[-1]
             else:
                 spot_id = spot_ids[-1]
-            print(spot_id)
             with song_lock:
-                print("in lock")
-                print("ids: " + str(song_set))
                 if spot_id in song_set:
-                    print("Already in playlist")
                     ret = "Already in playlist"
                     return ret, 200
                 else:
-                    print("adding to playlist")
                     song_set.add(spot_id)
-
-                if ".com" not in spot_id:
-                    print(f"Posting Spotify song: {spot_id} to {slack_channel}")
-                    response = client.chat_postMessage(channel=slack_channel, text=spot_id)
-                print("leaving lock")
+            if ".com" not in spot_id:
+                response = client.chat_postMessage(channel=slack_channel, text=spot_id)
     except :
         print("No spotify song found in the posted link.")
     return ret, 200
