@@ -186,6 +186,8 @@ def add_to_playlist():
                 spot_id = spot_ids[-1]
             print(spot_id)
             with song_lock:
+                print("in lock")
+                print("ids: " + str(song_set))
                 if spot_id in song_set:
                     print("Already in playlist")
                     ret = "Already in playlist"
@@ -194,9 +196,10 @@ def add_to_playlist():
                     print("adding to playlist")
                     song_set.add(spot_id)
 
-            if ".com" not in spot_id:
-                print(f"Posting Spotify song: {spot_id} to {slack_channel}")
-                response = client.chat_postMessage(channel=slack_channel, text=spot_id)
+                if ".com" not in spot_id:
+                    print(f"Posting Spotify song: {spot_id} to {slack_channel}")
+                    response = client.chat_postMessage(channel=slack_channel, text=spot_id)
+                print("leaving lock")
     except :
         print("No spotify song found in the posted link.")
     return ret, 200
