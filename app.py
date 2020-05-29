@@ -185,7 +185,7 @@ def add_to_playlist():
             else:
                 spot_id = spot_ids[-1]
             print(spot_id)
-            with lock:
+            with song_lock:
                 if spot_id in song_set:
                     print("Already in playlist")
                     ret = "Already in playlist"
