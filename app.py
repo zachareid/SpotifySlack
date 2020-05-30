@@ -20,8 +20,16 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-song_set = set()
 song_lock = Lock()
+song_list_length = 1000
+song_list = [None] * song_list_length
+song_ind = 0
+
+def add_to_songlist(elem):
+    global song_ind
+    song_list[song_ind] = elem
+    song_ind = (song_ind + 1) % song_list_length
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -183,11 +191,11 @@ def add_to_playlist():
             else:
                 spot_id = spot_ids[-1]
             with song_lock:
-                if spot_id in song_set:
+                if spot_id in song_list:
                     ret = "Already in playlist"
                     return ret, 200
                 else:
-                    song_set.add(spot_id)
+                    add_to_songlist(spot_id)
             if ".com" not in spot_id:
                 response = client.chat_postMessage(channel=slack_channel, text=spot_id)
     except :
