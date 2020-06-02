@@ -34,13 +34,12 @@ def getClosingPrice(ticker, day):
 def getHoldings(slack_id):
     user = User.query.filter(User.slack_id == slack_id).first()
     stocks = user.stocks.all()
-    out_str = ""
+    out_str = "Holdings:\n"
     for stock in stocks:
-        out_str += str(stock) + "\n"
+        out_str += "\t" + str(stock) + "\n"
     out_json = {}
-    out_json["text"] = "Stocks"
+    out_json["text"] = out_str
     out_json["response_type"] = "in_channel"
-    out_json["attachments"] = [ { "text" : out_str}]
     return out_json
 
 def getHoldingsAll():
@@ -137,11 +136,14 @@ def sell():
     sellStock(slack_id, ticker, shares)
     return "Successfully sold stock"
 
-@app.route('portfolio', methods=["POST"])
+@app.route('/portfolio', methods=["POST"])
 def getPortfolio():
     slack_id = request.form["user_id"]
     return getHoldings(slack_id)
 
+@app.route('/portfolios', methods=["POST"])
+def getPortfolios():
+    return getHoldingsAll()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
