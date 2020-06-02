@@ -73,6 +73,7 @@ def purchase():
     except:
         return "Enter a real number of stocks dumbfuck"
     buyStock(slack_id, ticker, shares)
+    return "Successfully purchases"
 
 
 def buyStock(slack_id, ticker, shares):
@@ -134,6 +135,12 @@ def sell():
     except:
         return "Enter a real number of stocks dumbfuck"
     sellStock(slack_id, ticker, shares)
+    return "Successfully sold stock"
+
+@app.route('portfolio', methods=["POST"])
+def getPortfolio():
+    slack_id = request.form["user_id"]
+    return getHoldings(slack_id)
 
 
 class User(db.Model):
