@@ -48,7 +48,7 @@ def getHoldingsAll():
     out_str = "Holdings:\n"
     for user in users:
         out_str += f"User: {user.firstname}\n"
-        out_str += f"\tCash: ${user.cash:02f}\n"
+        out_str += f"\tCash: ${user.cash:.02f}\n"
         stocks = user.stocks.all()
         for stock in stocks:
             out_str += "\t" + str(stock) + "\n"
