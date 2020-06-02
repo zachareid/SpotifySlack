@@ -83,7 +83,7 @@ def purchase():
     except:
         return "Enter a real number of stocks dumbfuck"
     buyStock(slack_id, ticker, shares)
-    return "Successfully purchases"
+    return "Successfully purchased"
 
 
 def buyStock(slack_id, ticker, shares):
