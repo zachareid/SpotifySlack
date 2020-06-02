@@ -58,7 +58,16 @@ def getHoldingsAll():
     return out_json
 
 
-
+@app.route("/lookup", methods = ["POST"])
+def getStockPrice():
+    command = request.form["text"]
+    args = command.split(" ")
+    ticker = args[0]
+    try:
+        ticker = ticker.replace("$", "")
+        return f"Current price: ${getCurrentPrice(ticker):.02f}"
+    except:
+        return "Enter a valid stock"
 
 @app.route('/buy', methods = ['POST'])
 def purchase():
