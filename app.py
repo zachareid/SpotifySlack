@@ -20,6 +20,157 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+
+def getCurrentPrice(ticker):
+    return getClosingPrice(ticker, datetime.now())
+
+def getClosingPrice(ticker, day):
+    begin = day - timedelta(days=5)
+    data = yf.download(ticker.replace("$",""), begin, day)
+    closing_val = data.Close[-1]
+    return closing_val
+
+
+def getHoldings(slack_id):
+    user = User.query.filter(User.slack_id == slack_id).first()
+    stocks = user.stocks.all()
+    out_str = ""
+    for stock in stocks:
+        out_str += str(stock) + "\n"
+    out_json = {}
+    out_json["text"] = "Stocks"
+    out_json["response_type"] = "in_channel"
+    out_json["attachments"] = [ { "text" : out_str}]
+    return out_json
+
+def getHoldingsAll():
+    users = User.query.all()
+    out_str = "Holdings:\n"
+    for user in users:
+        out_str += f"User: {user.firstname}\n"
+        stocks = user.stocks.all()
+        for stock in stocks:
+            out_str += "\t" + str(stock) + "\n"
+    out_json = {}
+    out_json["text"] = out_str
+    out_json["response_type"] = "in_channel"
+    return out_json
+
+
+
+
+@app.route('/purchase', methods = ['POST'])
+def purchase():
+    command = request.form["text"]
+    slack_id = request.form["user_id"]
+    args = command.split(" ")
+    ticker = args[0]
+    ticker = ticker.replace("$", "")
+    try:
+        shares = int(args[1])
+        if shares < 1:
+            return "Enter a real number of stocks dumbfuck"
+    except:
+        return "Enter a real number of stocks dumbfuck"
+    buyStock(slack_id, ticker, shares)
+
+
+def buyStock(slack_id, ticker, shares):
+    try:
+        price = getCurrentPrice(ticker)
+    except:
+        return "Not a real stock, dumbass"
+    ticker = ticker.lower()
+    user = User.query.filter_by(slack_id = slack_id).first()
+    cash = user.cash
+    purchase_total = price * shares
+    if cash > purchase_total:
+        holding = StockHolding.query.filter(StockHolding.ticker==ticker).filter(StockHolding.user_id==user.id).first()
+        if not holding:
+            holding = StockHolding(shares, ticker, price, user.id)
+        else:
+            holding.num_shares += shares
+        user.cash = user.cash - purchase_total
+        db.session.add(holding)
+        db.session.add(user)
+        db.session.commit()
+    else:
+        return "hey broke ass, you don't have enough money"
+
+
+def sellStock(slack_id, ticker, shares):
+    try:
+        price = getCurrentPrice(ticker)
+    except:
+        return "Not a real stock, dumbass"
+    ticker = ticker.lower()
+    user = User.query.filter(User.slack_id == slack_id).first()
+    holding = StockHolding.query.filter(StockHolding.ticker==ticker).filter(StockHolding.user_id==user.id).first()
+    if not holding:
+        return "You don't own any of this stock"
+    elif holding.num_shares < shares:
+        return "not enough shares"
+    else:
+        shares_left = holding.num_shares - shares
+        holding.num_shares = shares_left
+        user.cash += shares * price
+        if shares_left == 0:
+            db.session.delete(holding)
+        db.session.add(user)
+        db.session.commit()
+
+
+@app.route('/sell', methods = ['POST'])
+def sell():
+    command = request.form["text"]
+    slack_id = request.form["user_id"]
+    args = command.split(" ")
+    ticker = args[0]
+    ticker = ticker.replace("$", "").lower()
+    try:
+        shares = int(args[1])
+        if shares < 1:
+            "Enter a real number of stocks dumbfuck"
+    except:
+        return "Enter a real number of stocks dumbfuck"
+    sellStock(slack_id, ticker, shares)
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    firstname = db.Column(db.String(64))
+    lastname = db.Column(db.String(64))
+    cash = db.Column(db.Float, default=0)
+    stocks = db.relationship('StockHolding', backref='user', lazy='dynamic')
+    slack_id = db.Column(db.String(64))
+
+    def __init__(self, firstname, lastname, slack_id):
+        self.firstname = firstname
+        self.lastname = lastname
+        self.slack_id = slack_id
+
+    def __repr__(self):
+        return f"User :{self.firstname} {self.lastname}, ${self.cash:.02f}, stocks: {self.stocks.all()}"
+
+class StockHolding(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    num_shares = db.Column(db.Integer)
+    ticker = db.Column(db.String(10))
+    purchase_price = db.Column(db.Float)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
+    def __init__(self, num_shares, ticker, purchase_price, user_id):
+        self.num_shares = num_shares
+        self.ticker = ticker
+        self.purchase_price = purchase_price
+        self.user_id = user_id
+    def __repr__(self):
+        return f"Stock: {self.ticker.upper()}, {self.num_shares} shares."
+
+
+
+
+
+
 song_lock = Lock()
 song_list_length = 1000
 song_list = [None] * song_list_length
@@ -30,49 +181,6 @@ def add_to_songlist(elem):
     song_list[song_ind] = elem
     song_ind = (song_ind + 1) % song_list_length
 
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    firstname = db.Column(db.String(64))
-    lastname = db.Column(db.String(64))
-    predictions = db.relationship('Prediction', backref='user', lazy='dynamic')
-    slack_id = db.Column(db.String(64))
-
-    def __init__(self, firstname, lastname, slack_id):
-        self.firstname = firstname
-        self.lastname = lastname
-        self.slack_id = slack_id
-
-    def __repr__(self):
-        return f"User :{self.firstname} {self.lastname}>"
-
-class Prediction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    stock = db.Column(db.String(10))
-    prediction_start = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    prediction_end = db.Column(db.DateTime, index=True)
-    prediction_days = db.Column(db.Integer)
-    stock_price = db.Column(db.Float)
-    stock_price_end = db.Column(db.Float)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))
-
-    def __init__(self, stock, stock_price, prediction_start, prediction_days, user_id):
-        self.stock = stock
-        self.stock_price = stock_price
-        self.prediction_start = prediction_start
-        self.prediction_days = prediction_days
-        self.prediction_end = prediction_start + timedelta(days=prediction_days)
-        self.user_id = user_id
-
-    def __repr__(self):
-        out_str =  f"{self.stock}\n"
-        out_str += f"\tStart date: {self.prediction_start:%Y-%m-%d} \n\tEnd Date: {self.prediction_end:%Y-%m-%d} \n\tDays: {self.prediction_days}\n"
-        out_str += f"\tStart Price: ${float(self.stock_price):.02f}\n"
-        if self.stock_price_end:
-            out_str += f"\tEnd Price: ${float(self.stock_price_end):.02f} \n"
-        return out_str
-
-
 client = WebClient(token=slack_token)
 slack_channel = "zar-test"
 
@@ -82,87 +190,6 @@ spotify_reg = "[^\/][\w]+(?=\?)"
 @app.route('/')
 def hello_world():
     return 'Hello, World!'
-
-@app.route("/update_predictions", methods=['POST'])
-def updatePredictions():
-    preds = Prediction.query.filter(Prediction.stock_price_end == None)
-    for pred in preds:
-        print(f"Scanning predictions...{pred}")
-        # If the current datetime is at least a day past the last prediction
-        if datetime.now() > pred.prediction_end + timedelta(days=1):
-            print(f"Updating prediction")
-            # need to update
-            closing_price = getClosingPrice(pred.stock, pred.prediction_end)
-            pred.stock_price_end = closing_price
-            db.session.commit()
-
-
-def getPredictions(slack_id):
-    user = User.query.filter(User.slack_id == slack_id).first()
-    preds = user.predictions.all()
-    out_str = ""
-    for pred in preds:
-        out_str += str(pred)
-        price = getClosingPrice(pred.stock, date.today())
-        out_str += f"\tCurrent Price: ${float(price):.02f}\n"
-    out_json = {}
-    out_json["text"] = "Predictions"
-    out_json["response_type"] = "in_channel"
-    out_json["attachments"] = [ { "text" : out_str}]
-    return out_json
-    
-    
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    print(request.form)
-    up = True
-    days = 0
-    command = request.form["text"]
-    slack_id = request.form["user_id"]
-    args = command.split(" ")
-
-    ticker = args[0]
-
-    if ticker == "get":
-        updatePredictions()
-        return jsonify(getPredictions(slack_id))
-    if "$" not in ticker:
-        return "You forgot the $, idiot"
-    
-    ticker = ticker.replace("$", "")
-    
-    direction = args[1]
-    if direction == "up":
-        up = True
-    elif direction == "down":
-        up = False
-    else:
-        return "Specify a correct direction of the stock price, you pathetic dumbfuck.", 200
-    
-    days_str = args[2]
-    if isInt(days_str):
-        days = int(days_str)
-    else:
-        return "Specify a correct number of days, dear Lord you're dumb."
-
-    closing_val = getClosingPrice(ticker, date.today())
-    user = User.query.filter_by(slack_id = slack_id).first()
-
-    pred = Prediction(ticker, float(closing_val),  date.today(), days, user.id)
-    print(pred)
-    db.session.add(pred)
-    db.session.commit()
-
-    out_str = f"You predict that {ticker}, which is currently at ${closing_val:.2f}, will go {direction} in {days} days"
-    return out_str, 200
-
-def getClosingPrice(ticker, day):
-    begin = day - timedelta(days=5)
-    data = yf.download(ticker.replace("$",""), begin, day)
-    closing_val = data.Close[-1]
-    return closing_val
-
 
 def isInt(s):
     try: 
@@ -201,6 +228,8 @@ def add_to_playlist():
     except :
         print("No spotify song found in the posted link.")
     return ret, 200
+
+
 
 if __name__ == '__main__':
     # Threaded option to enable multiple instances for multiple user access support
