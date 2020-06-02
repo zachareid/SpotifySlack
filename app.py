@@ -59,7 +59,7 @@ def getHoldingsAll():
 
 
 
-@app.route('/purchase', methods = ['POST'])
+@app.route('/buy', methods = ['POST'])
 def purchase():
     command = request.form["text"]
     slack_id = request.form["user_id"]
