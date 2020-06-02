@@ -34,7 +34,7 @@ def getClosingPrice(ticker, day):
 def getHoldings(slack_id):
     user = User.query.filter(User.slack_id == slack_id).first()
     stocks = user.stocks.all()
-    out_str = f"Cash: ${user.cash:02f}\b"
+    out_str = f"Cash: ${user.cash:.02f}\n"
     out_str += "Holdings:\n"
     for stock in stocks:
         out_str += "\t" + str(stock) + "\n"
