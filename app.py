@@ -1,7 +1,7 @@
 import re
 import os
 import time
-from threading import Lock
+from threading import Lock, Thread
 
 from flask import request, Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -20,6 +20,39 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ["DATABASE_URL"]
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
+
+#------------------------------------------
+#            Testing section
+#------------------------------------------
+
+def getCurrentPriceThread(ticker, res):
+    res.append(getCurrentPrice(ticker))
+
+def test_threaded_priceUpdate(num_stonks):
+    res = []
+    t1 = time.time()
+    thread_list = []
+    for i in range(num_stonks):
+        thread = Thread(target=getCurrentPriceThread, args=("aapl",res))
+        thread_list.append(thread)
+    for thread in thread_list:
+        thread.start()
+    for thread in thread_list:
+        thread.join()
+    tout = time.time() - t1
+    return res, tout
+
+@app.route("/zartest", methods=["GET"])
+def zartest():
+    num = int(request.args.get("num"))
+    res, tout = test_threaded_priceUpdate(num)
+    print(res)
+    print(tout)
+    return str(tout)
+
+#------------------------------------------
+#         Stock Sim helper functions
+#------------------------------------------
 
 def getCurrentPrice(ticker):
     return getClosingPrice(ticker, datetime.now())
@@ -45,7 +78,7 @@ def getHoldings(slack_id):
 
 def getHoldingsAll():
     users = User.query.all()
-    out_str = "Holdings:\n"
+    out_str = ""
     for user in users:
         out_str += f"User: {user.firstname}\n"
         out_str += f"\tCash: ${user.cash:.02f}\n"
@@ -53,10 +86,62 @@ def getHoldingsAll():
         for stock in stocks:
             out_str += "\t" + str(stock) + "\n"
     out_json = {}
-    out_json["text"] = out_str
+    out_json["text"] = "Holdings"
     out_json["response_type"] = "in_channel"
+    out_json["attachments"] = [ { "text" : out_str } ]
     return out_json
 
+def buyStock(slack_id, ticker, shares):
+    try:
+        price = getCurrentPrice(ticker)
+    except:
+        return "Not a real stock, dumbass"
+    ticker = ticker.lower()
+    user = User.query.filter_by(slack_id = slack_id).first()
+    cash = user.cash
+    purchase_total = price * shares
+    if cash > purchase_total:
+        holding = StockHolding.query.filter(StockHolding.ticker==ticker).filter(StockHolding.user_id==user.id).first()
+        if not holding:
+            holding = StockHolding(shares, ticker, price, user.id)
+        else:
+            holding.num_shares += shares
+        user.cash = user.cash - purchase_total
+        db.session.add(holding)
+        db.session.add(user)
+        db.session.commit()
+    else:
+        return "hey broke ass, you don't have enough money"
+
+
+
+def sellStock(slack_id, ticker, shares):
+    try:
+        price = getCurrentPrice(ticker)
+    except:
+        return "Not a real stock, dumbass"
+    ticker = ticker.lower()
+    user = User.query.filter(User.slack_id == slack_id).first()
+    holding = StockHolding.query.filter(StockHolding.ticker==ticker).filter(StockHolding.user_id==user.id).first()
+    if not holding:
+        return "You don't own any of this stock"
+    elif holding.num_shares < shares:
+        return "not enough shares"
+    else:
+        shares_left = holding.num_shares - shares
+        holding.num_shares = shares_left
+        user.cash += shares * price
+        if shares_left == 0:
+            db.session.delete(holding)
+        db.session.add(user)
+        db.session.commit()
+
+
+
+
+#------------------------------------------
+#         Stock Sim APIs 
+#------------------------------------------
 
 @app.route("/lookup", methods = ["POST"])
 def getStockPrice():
@@ -86,50 +171,6 @@ def purchase():
     return "Successfully purchased"
 
 
-def buyStock(slack_id, ticker, shares):
-    try:
-        price = getCurrentPrice(ticker)
-    except:
-        return "Not a real stock, dumbass"
-    ticker = ticker.lower()
-    user = User.query.filter_by(slack_id = slack_id).first()
-    cash = user.cash
-    purchase_total = price * shares
-    if cash > purchase_total:
-        holding = StockHolding.query.filter(StockHolding.ticker==ticker).filter(StockHolding.user_id==user.id).first()
-        if not holding:
-            holding = StockHolding(shares, ticker, price, user.id)
-        else:
-            holding.num_shares += shares
-        user.cash = user.cash - purchase_total
-        db.session.add(holding)
-        db.session.add(user)
-        db.session.commit()
-    else:
-        return "hey broke ass, you don't have enough money"
-
-
-def sellStock(slack_id, ticker, shares):
-    try:
-        price = getCurrentPrice(ticker)
-    except:
-        return "Not a real stock, dumbass"
-    ticker = ticker.lower()
-    user = User.query.filter(User.slack_id == slack_id).first()
-    holding = StockHolding.query.filter(StockHolding.ticker==ticker).filter(StockHolding.user_id==user.id).first()
-    if not holding:
-        return "You don't own any of this stock"
-    elif holding.num_shares < shares:
-        return "not enough shares"
-    else:
-        shares_left = holding.num_shares - shares
-        holding.num_shares = shares_left
-        user.cash += shares * price
-        if shares_left == 0:
-            db.session.delete(holding)
-        db.session.add(user)
-        db.session.commit()
-
 
 @app.route('/sell', methods = ['POST'])
 def sell():
@@ -147,6 +188,7 @@ def sell():
     sellStock(slack_id, ticker, shares)
     return "Successfully sold stock"
 
+
 @app.route('/portfolio', methods=["POST"])
 def getPortfolio():
     slack_id = request.form["user_id"]
@@ -155,6 +197,11 @@ def getPortfolio():
 @app.route('/portfolios', methods=["POST"])
 def getPortfolios():
     return getHoldingsAll()
+
+
+#------------------------------------------
+#         Stock Sim DB models
+#------------------------------------------
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -190,16 +237,14 @@ class StockHolding(db.Model):
 
 
 
+#------------------------------------------
+#         Spotify data, functions, and APIs
+#------------------------------------------
 
 song_lock = Lock()
 song_list_length = 1000
 song_list = [None] * song_list_length
 song_ind = 0
-
-def add_to_songlist(elem):
-    global song_ind
-    song_list[song_ind] = elem
-    song_ind = (song_ind + 1) % song_list_length
 
 client = WebClient(token=slack_token)
 slack_channel = "zar-test"
@@ -207,16 +252,22 @@ slack_channel = "zar-test"
 spotify_reg = "[^\/][\w]+(?=\?)"
 
 
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
-
 def isInt(s):
     try: 
         int(s)
         return True
     except ValueError:
         return False
+
+def add_to_songlist(elem):
+    global song_ind
+    song_list[song_ind] = elem
+    song_ind = (song_ind + 1) % song_list_length
+
+
+@app.route('/')
+def hello_world():
+    return 'Hello, World!'
 
 @app.route('/add_to_playlist', methods=['GET', 'POST'])
 def add_to_playlist(): 
@@ -248,7 +299,6 @@ def add_to_playlist():
     except :
         print("No spotify song found in the posted link.")
     return ret, 200
-
 
 
 if __name__ == '__main__':

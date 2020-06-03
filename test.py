@@ -11,3 +11,31 @@ def add_song_to_list(elem):
 
 
 [add_song_to_list(elem) for elem in test_ids]
+
+
+import threading
+import yfinance as yf
+import time
+
+from app import getCurrentPrice
+
+
+def getCurrentPriceThread(ticker, res):
+    res.append(getCurrentPrice(ticker))
+
+
+
+def test_threaded_priceUpdate(num_stonks):
+    res = []
+    t1 = time.time()
+    thread_list = []
+    for i in range(num_stonks):
+        thread = threading.Thread(target=getCurrentPriceThread, args=("aapl",res))
+        thread_list.append(thread)
+    for thread in thread_list:
+        thread.start()
+    for thread in thread_list:
+        thread.join()
+
+    print(time.time() - t1)
+    return res
